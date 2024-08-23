@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "dnsresolver"
+version = "0.1.0"
+description = "A DNS resolver implemented following the RFC 1035 and the steps described by John Crickett's CodingChallenges newsletter"
+authors = ["Erick Grilo <simasgrilo86@gmail.com>"]
+license = "GNU"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
