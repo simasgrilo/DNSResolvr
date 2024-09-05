@@ -1,11 +1,12 @@
 import unittest
 from comp.dns.DNSMessage import DNSMessage
 
-class test(unittest.TestCase):
+class TestStep1(unittest.TestCase):
 
+    def setup(self):
+        self.__msg = DNSMessage("dns.google.com")
     def testMessageAssemble(self):
-        msg = DNSMessage("www.google.com")
-        assert msg is not None
+        assert self.__msg is not None
 
     def testMessageHeaderContent(self):
         pass

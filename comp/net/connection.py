@@ -15,7 +15,8 @@ class DNSConnection:
         """
         try:
             #SOCK_DGRAM for UDP connection, SOCK_STREAM for TCP connection
-            self.__conn.sendto(message.format(), (self.__ip, self.__port))
+            dns_msg = message.format_header() + message.format_question()
+            self.__conn.sendto(dns_msg, (self.__ip, self.__port))
             message = self.__conn.recvfrom(4096) #buffer of 4096
         except TimeoutError:
             pass
