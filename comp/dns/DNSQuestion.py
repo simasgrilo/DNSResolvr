@@ -1,13 +1,14 @@
 import sys
 
+
 class DNSQuestion:
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, qtype: str, qclass: str):
         # encoding of the name being queried in a bytes object with the corresponding encoding
         # could be the same as b'www.google.com', for example.
         self.__qname = self.__encode_cnt(name)
-        self.__qtype = b'\x00\x01'
-        self.__qclass = b'\x00\x01'
+        self.__qtype = bytes.fromhex(qtype) #b'\x00\x01'
+        self.__qclass = bytes.fromhex(qclass) #b'\x00\x01'
 
     def get_question_name(self):
         return self.__qname
