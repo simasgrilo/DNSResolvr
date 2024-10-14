@@ -5,6 +5,8 @@ class DNSAnswer:
 
     def __init__(self, response: bytes):
         self.__COMPRESSED_NAME = 192
+        self.__IPv4 = 'A'
+        self.__IPv6 = 'AAAA'
         self.__response = response
         self.__byteString = bytes.hex(response)
 
@@ -42,15 +44,16 @@ class DNSAnswer:
         questions = self.__response[4] + self.__response[5]
         authority_rr = self.__response[8] + self.__response[9]
         additional_rr = self.__response[10] + self.__response[11]
+        parsed_answers = []
         #no questions, no responses
         if not questions:
             return None
         if answers:
             return self.__decode_answer(questions)
         else:
-            #parse both the authoritative_nameservers & the additional return records
-            offset, parsed_answers = self.__decode_authoritative(questions,authority_rr, additional_rr) #will use both the authority and additional records section
-            #additional_info = self.__decode_additional_info(offset)
+            if authority_rr:
+                offset, parsed_answers = self.__decode_authoritative(questions,authority_rr, additional_rr) #will use both the authority and additional records section
+                parsed_additional_rr = self.__decode_additional_rr(offset, additional_rr)
         return parsed_answers
 
     def __parse_questions(self, offset: int, questions_offset: int, response: bytes) -> int:
@@ -79,7 +82,7 @@ class DNSAnswer:
             while response[offset] != b'\x00':
                 if response[offset] == COMPRESSED_NAME:
                     #read from the next pointer and return: by the RFC, pointers are only found at the end of a name.
-                    name.append(self.__decode_name(response[response[offset + 1]::]))
+                    name.append(self.__decode_name(response, response[offset + 1]))
                     break
                 else:
                     #regular addresses: no pointers to process:
@@ -103,22 +106,42 @@ class DNSAnswer:
 
             rdata_length = int(response[offset: offset + 2].hex(), 16)
             parsed_answer["Data Length"] = rdata_length
-            full_addr = []
-            curr_addr = []
             offset += 2
-            index = 0
-            for byte in range(offset, offset + rdata_length):
-                curr_addr.append(str(int(response[offset: offset + 1].hex(),16)))
-                index += 1
-                if not index % 4:
-                    full_addr.append(".".join(curr_addr))
-                    curr_addr.clear()
-                    index = 0
-            parsed_answer['Address'] = full_addr
+            # full_addr = []
+            # curr_addr = []
+            # index = 0
+            # for byte in range(offset, offset + rdata_length):
+            #     curr_addr.append(str(int(response[offset: offset + 1].hex(),16)))
+            #     index += 1
+            #     if not index % 4:
+            #         full_addr.append(".".join(curr_addr))
+            #         curr_addr.clear()
+            #         index = 0
+            parsed_answer['Address'] = self.__parse_ipv4_addr(response, offset, rdata_length)
             parsed_answers.append(parsed_answer)
             #position the offset at the next pos, which is the length of the read data:
             offset += rdata_length
         return parsed_answers
+
+    def __parse_ipv4_addr(self, response: bytes, offset: int, rdata_length: int):
+        """Parses IPv4 addresses as in the answer format (you can have more than one IPv4 address
+           Can be reused also in retrieving the IP for TLD or authoritative servers as in auth_rr records.
+           @:param response: the bytestream response of the DNS request
+           @:param offset: the byte position as an integer in the message to start the processing
+           @:param rdata_length: resource data length for the attribute being processed.
+           @:return full_addr: a String linst containing all IPv4 addresses returned
+        """
+        full_addr = []
+        curr_addr = []
+        index = 0
+        for byte in range(offset, offset + rdata_length):
+            curr_addr.append(str(int(response[byte: byte + 1].hex(), 16)))
+            index += 1
+            if not index % 4:
+                full_addr.append(".".join(curr_addr))
+                curr_addr.clear()
+                index = 0
+        return full_addr
 
     def __decode_authoritative(self, questions_offset: int, authority_rr: int, additional_rr: int):
         """interprets the authoritative server and queries it again with a new DNS message iteratively for each Authoritative
@@ -143,7 +166,7 @@ class DNSAnswer:
                 if response[offset] == COMPRESSED_NAME:
                     # name references to a pointer:
                     # read from the next pointer and return: by the RFC, pointers are only found at the end of a name.
-                    name.append(self.__decode_name(response[response[offset + 1]::]))
+                    name.append(self.__decode_name(response, response[offset + 1]))
                     print(name)
                     break
                 else:
@@ -180,14 +203,46 @@ class DNSAnswer:
             #         index = 0
             #the decoding of the server name is the same as the answer server name.
             #note: pass the full message so __decode_name_server can correctly parse when the compression pointer is reached
-            parsed_answer['Name Server'] = ".".join(self.__decode_name_server(response, offset, offset + rdata_length))
+            parsed_answer['Name Server'] = ".".join(self.__decode_name_server(response, offset))
             parsed_answers.append(parsed_answer)
             # position the offset at the next pos, which is the length of the read data:
             offset += rdata_length
         return (offset, parsed_answers)
 
+    def __decode_additional_rr(self, offset: int, additional_rr: int):
+        """Parses the additional RR section of the DNS response if present."""
+        if not additional_rr:
+            return None
+        response = self.__response
+        additional_rr_data = {}
+        #idea: have a dictionary of dictionaries where the key is the resource and type, instead of a list of resources
+        #this is to optimize the process of retrieving the information for the resource queried
+        for record in range(additional_rr):
+            parsed_additional_rr = {}
+            rr_name = "".join(self.__decode_name_server(response, offset))
+            #position the offset until '\x00' is found:
+            while response[offset]:
+                offset += 1
+            rr_type = self.__get_rr_definition(int(response[offset: offset + 2].hex(), 16))
+            parsed_additional_rr["Type"] = rr_type
+            offset += 2
+            parsed_additional_rr["Class"] = self.__get_class_type(int(response[offset: offset + 2].hex(), 16))
+            offset += 2
+            parsed_additional_rr["TTL"] = int(response[offset: offset + 4].hex(), 16)
+            offset += 4
+            rdata_length = int(response[offset:offset + 2].hex(), 16)
+            parsed_additional_rr["Data Length"] = rdata_length
+            offset += 2
+            if parsed_additional_rr["Type"] == self.__IPv4:
+                #only parses IPv4 address
+                parsed_additional_rr['Address'] = self.__parse_ipv4_addr(response, offset, rdata_length)
+            additional_rr_data[(rr_name,rr_type)] = parsed_additional_rr
+            offset += rdata_length
+            #TODO: address the IPv6 parsing - needs to consider the offset also.
+            #additional_rr_data.append(parsed_additional_rr) #this should be a dict of dictionariews with the key being the server name.
+        return additional_rr_data
 
-    def __decode_name_server(self, message: bytes, offset: int, name_size: int):
+    def __decode_name_server(self, message: bytes, offset: int):
         """Similar to __decode_name, but allows the introduction of pointers to previously visited strings"""
         #offset = 0
         parsed_name = []
@@ -196,7 +251,7 @@ class DNSAnswer:
             part_name = ""
             if length == self.__COMPRESSED_NAME:
                 #decode the name in the pointer
-                part_name += self.__decode_name(message[message[offset + 1]::])
+                part_name += self.__decode_name(message, message[offset + 1])
                 parsed_name.append(part_name)
                 break
             else:
@@ -206,17 +261,22 @@ class DNSAnswer:
                 parsed_name.append(part_name)
                 #move the pointer to the next name position
                 offset = pointer + 1
-        return parsed_name
+        return parsed_name #"".join(parsed_name)
 
-    def __decode_name(self, name:bytes):
-        offset = 0
+    def __decode_name(self, name: bytes, offset: int):
+        #offset = 0
         parsed_name = []
         while name[offset]:
             length = name[offset]
             part_name = ""
-            for pointer in range(offset + 1, offset + length + 1):
-                part_name += chr(name[pointer])
-            parsed_name.append(part_name)
+            if length == self.__COMPRESSED_NAME:
+                part_name += "".join(self.__decode_name_server(name, offset))
+                parsed_name.append(part_name)
+                break
+            else:
+                for pointer in range(offset + 1, offset + length + 1):
+                    part_name += chr(name[pointer])
+                parsed_name.append(part_name)
             offset = pointer + 1
         return ".".join(parsed_name)
 
@@ -237,7 +297,8 @@ class DNSAnswer:
             13: 'HINFO',
             14: 'MINFO',
             15: 'MX',
-            16: 'TXT'
+            16: 'TXT',
+            28: 'AAAA'
         }
         return rr_map[rr]
 
