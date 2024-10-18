@@ -22,7 +22,7 @@ class DNSQuerier():
                                "0000",
                                "0000",
                                "0000")
-        print("Querying {dns_server} to discover {hostname}'s address".format(dns_server=dns_server,hostname=hostname))
+        print("Querying {dns_server} to discover {hostname}'s address".format(dns_server=dns_server, hostname=hostname))
         message = DNSMessage(hostname, dns_header)
         connection = DNSConnection(dns_server, 53)
         response = DNSAnswer(connection.sendDNSMessage(message))
@@ -35,8 +35,9 @@ class DNSQuerier():
         for return_record in query_servers:
             server = return_record["Name Server"]
             #TODO: enable IPV6 support
-            server_ips = query_additional_data.get((server, self.IPV4))['Address']
+            server_ips = query_additional_data.get((server, self.IPV4))
             if server_ips:
+                server_ips = server_ips['Address']
                 #scenario where the IP of the server in the answer section was received in the additional RR part.
                 for ip in server_ips:
                     server = self.__query(hostname, ip)

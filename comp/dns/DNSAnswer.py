@@ -171,7 +171,6 @@ class DNSAnswer:
                     # name references to a pointer:
                     # read from the next pointer and return: by the RFC, pointers are only found at the end of a name.
                     name.append(self.__decode_name(response, response[offset + 1]))
-                    print(name)
                     break
                 else:
                     # regular addresses: no pointers to process:
