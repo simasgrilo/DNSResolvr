@@ -166,7 +166,7 @@ class DNSAnswer:
             # each authority record contains 32 bytes. We need to process them following the specs in Section 3.2.2.
             # parse name
             name = []
-            while response[offset] != b'\x00':
+            while response[offset] != 0:
                 if response[offset] == COMPRESSED_NAME:
                     # name references to a pointer:
                     # read from the next pointer and return: by the RFC, pointers are only found at the end of a name.
@@ -174,12 +174,21 @@ class DNSAnswer:
                     break
                 else:
                     # regular addresses: no pointers to process:
-                    name.append(
-                        bytes.decode(bytes.fromhex((str(response[offset])))))  # bytes.decode(bytes.fromhex('64'))
+                    curr_name = ""
+                    for pos in range(offset + 1, offset + response[offset] + 1):
+                        curr_name += chr(response[pos])
+                    name.append(curr_name)
+                    offset = pos
                 offset += 1
-            parsed_answer["Name"] = "".join(name)
-            # skip the name record
-            offset += 2
+            parsed_answer["Name"] = ".".join(name)
+            # begin of fix #1
+            if response[offset] == COMPRESSED_NAME:
+                offset += 2
+            else:
+                #name did not have compression: have to find the beginning of the next register:
+                while not response[offset + 1]:
+                    offset += 1
+            # end of fix #1
             # parse type
             parsed_answer["Type"] = self.__get_rr_definition(int(response[offset: offset + 2].hex(), 16))
             # end of the Type part of the answer record

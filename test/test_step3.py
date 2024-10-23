@@ -29,5 +29,5 @@ class TestStep3(unittest.TestCase):
 
     def testParseMessage(self):
         message = DNSAnswer(self.__connection.sendDNSMessage(self.__message)).decode_answer()
-        ip_addr = message[0]['Address']
+        ip_addr = message[0][0]['Address']
         self.assertEqual(ip_addr[0], '8.8.8.8')
