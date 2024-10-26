@@ -3,7 +3,7 @@ from comp.dns.DNSHeader import DNSHeader
 from comp.dns.DNSAnswer import DNSAnswer
 from comp.net.connection import DNSConnection
 
-class DNSQuerier():
+class DNSQuerier:
 
     TLD_HOSTS = ["198.41.0.4"]
     IPV4 = 'A'
@@ -34,18 +34,23 @@ class DNSQuerier():
             return query_servers
         for return_record in query_servers:
             server = return_record["Name Server"]
+            if not query_additional_data:
+                # begin fix #2
+                # the server did not have an IP address in the additional section.
+                server_ips = self.query_server(server)[0]
+                if not server_ips:
+                    return None
+                # end fix #2
             #TODO: enable IPV6 support
-            server_ips = query_additional_data.get((server, self.IPV4))
-            if server_ips:
-                server_ips = server_ips['Address']
-                #scenario where the IP of the server in the answer section was received in the additional RR part.
-                for ip in server_ips:
-                    server = self.__query(hostname, ip)
-                    if server:
-                        return server
             else:
-                #search for the IP of the current server we're querying.
-                pass
+                server_ips = query_additional_data.get((server, self.IPV4))
+            #search for the IP of the current server we're querying.
+            server_ips = server_ips['Address']
+            #scenario where the IP of the server in the answer section was received in the additional RR part.
+            for ip in server_ips:
+                server = self.__query(hostname, ip)
+                if server:
+                    return server
         return None
 
 
