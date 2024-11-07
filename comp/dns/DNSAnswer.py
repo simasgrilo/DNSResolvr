@@ -8,6 +8,7 @@ class DNSAnswer:
         self.__COMPRESSED_NAME = 192
         self.__IPv4 = 'A'
         self.__IPv6 = 'AAAA'
+        self.__CNAME = 'CNAME'
         self.__response = response
         self.__byteString = bytes.hex(response)
 
@@ -26,6 +27,24 @@ class DNSAnswer:
         return str(hex(self.__response[0])) + str(hex(self.__response[1]))
 
     def decode_flags(self, mode: str = None):
+        errors = {
+            0: "No error",
+            1: "Format error",
+            2: "Server Failure",
+            3: "Name Error",
+            4: "Not Implemented",
+            5: "Refused",
+            6: "Reserved - Future",
+            7: "Reserved - Future",
+            8: "Reserved - Future",
+            9: "Reserved - Future",
+            10: "Reserved - Future",
+            11: "Reserved - Future",
+            12: "Reserved - Future",
+            13: "Reserved - Future",
+            14: "Reserved - Future",
+            15: "Reserved - Future"
+        }
         if mode == 'bin':
             return str(bin(self.__response[2])) + str(bin(self.__response[3]))
         return self.__response[2] + self.__response[3]
@@ -51,7 +70,10 @@ class DNSAnswer:
         if not questions:
             return None
         if answers:
-            return self.__decode_answer(questions), 0
+            #begin fix issue #3 - egrilo
+            #answers also need to be considered here as the offset of the datagram area the parser will check
+            return self.__decode_answer(questions, answers), 0
+            #end fix issue #3 - egrilo
         else:
             if authority_rr:
                 offset, parsed_answers = self.__decode_authoritative(questions, authority_rr,
@@ -67,7 +89,7 @@ class DNSAnswer:
             offset += 5
         return offset
 
-    def __decode_answer(self, questions_offset: int) -> List[Dict]:
+    def __decode_answer(self, questions_offset: int, answers_offset: int) -> List[Dict]:
         # move the pointer from byte 6 to the answers offset - which moves from the questions to the answers
         # you also need the amount of questions to know the offset - 11 bytes is the count from the ID to the queries.
         # each query contains 3 sections of two bytes each - 6 bytes per question
@@ -78,7 +100,8 @@ class DNSAnswer:
         # ignore the query section:
         offset = self.__parse_questions(offset, questions_offset, response)
         parsed_answers = []
-        for answer in range(0, questions_offset):
+        cname = None
+        for answer in range(0, answers_offset):
             # TODO: refactor the parsing process into different methods
             parsed_answer = {}
             name = []
@@ -121,10 +144,17 @@ class DNSAnswer:
             #         full_addr.append(".".join(curr_addr))
             #         curr_addr.clear()
             #         index = 0
-            parsed_answer['Address'] = self.__parse_ipv4_addr(response, offset, rdata_length)
+            # TODO BEGIN fix #3 - egrilo
+            if rr_type == self.__CNAME:
+                cname = parsed_answer
+                # breakpoint()
+                parsed_answer['CNAME'] = ".".join(self.__decode_name_server(response, offset))
+            # END fix #3 - egrilo
+            parsed_answer['Address'] = self.__parse_ipv4_addr(response, offset, rdata_length) if parsed_answer['Type'] == 'A' else []
             parsed_answers.append(parsed_answer)
             # position the offset at the next pos, which is the length of the read data:
             offset += rdata_length
+
         return parsed_answers
 
     def __parse_ipv4_addr(self, response: bytes, offset: int, rdata_length: int):
