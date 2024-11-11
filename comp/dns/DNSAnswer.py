@@ -1,6 +1,6 @@
 import sys
 from typing import List, Dict
-
+from comp.exc.BadServerNameException import BadServerNameException
 
 class DNSAnswer:
 
@@ -49,6 +49,27 @@ class DNSAnswer:
             return str(bin(self.__response[2])) + str(bin(self.__response[3]))
         return self.__response[2] + self.__response[3]
 
+    def decode_flags_ans(self, flags: int,):
+        errors = {
+            0: "No error",
+            1: "Format error",
+            2: "Server Failure - A problem has ocurred within the name server",
+            3: "Name Error - Name referenced in the query does not exist",
+            4: "Not Implemented - Name Server does not support the requested kind of query",
+            5: "Refused",
+            6: "Reserved - Future",
+            7: "Reserved - Future",
+            8: "Reserved - Future",
+            9: "Reserved - Future",
+            10: "Reserved - Future",
+            11: "Reserved - Future",
+            12: "Reserved - Future",
+            13: "Reserved - Future",
+            14: "Reserved - Future",
+            15: "Reserved - Future"
+        }
+        return errors[flags]
+
     def decode_answer(self):
         """decodes the answer of the DNS request.
             if the answer header contains entries in field ANCOUNT, means that the payload contains Return Records
@@ -66,6 +87,11 @@ class DNSAnswer:
         authority_rr = self.__response[8] + self.__response[9]
         additional_rr = self.__response[10] + self.__response[11]
         parsed_answers = []
+        #begin fix #4 - EGRILO
+        #get only the four bits of the rcode part of the answer
+        flags = int(self.get_message()[3:4].hex()[1], 16)
+        self.__is_invalid_response(flags)
+        #end fix #4 - EGRILO
         # no questions, no responses
         if not questions:
             return None
@@ -80,6 +106,12 @@ class DNSAnswer:
                                                                      additional_rr)  # will use both the authority and additional records section
                 parsed_additional_rr = self.__decode_additional_rr(offset, additional_rr)
         return parsed_answers, parsed_additional_rr
+
+    def __is_invalid_response(self, flags):
+        error_message = self.decode_flags_ans(flags)
+        if flags != 0:
+            raise BadServerNameException(error_message)
+
 
     def __parse_questions(self, offset: int, questions_offset: int, response: bytes) -> int:
         for query in range(questions_offset):
