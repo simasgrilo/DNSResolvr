@@ -64,5 +64,5 @@ class DNSServer:
             return dns.incorrect_server_name_format(e)
 
     @__app.errorhandler(400)
-    def incorrect_server_name_format(error):
+    def incorrect_server_name_format(self, error):
         return json.dumps(error.__str__()), DNSServer.HTTP_400_BAD_REQUEST

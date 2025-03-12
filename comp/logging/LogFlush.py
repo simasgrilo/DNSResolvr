@@ -3,7 +3,6 @@ import requests
 from requests.exceptions import ConnectionError as ReqConnectionError
 import json
 import time
-import sched
 
 
 class LogFlush:
@@ -18,7 +17,6 @@ class LogFlush:
         Args:
             config (dict): Configuration dict read from file
         """
-        self._scheduler = sched.scheduler(time.time, time.sleep)
         self._config = config
         self._backoff = 1000
     
@@ -42,9 +40,11 @@ class LogFlush:
         url = "{}://{}:{}{}".format(self.config["LogAggregator"]["protocol"], self.config["LogAggregator"]["host"], self.config["LogAggregator"]["port"], self.config["LogAggregator"]["endpoint"])
         try:
             requests.post(url=url,json=json.dumps(content))
+            #TODO remove the file if it has already been sent.
             print("request sent")
         except ConnectionError and ReqConnectionError as e:
-            return "Error trying to connect to {}: {}".format(url, e.strerror), 500
+            error_message = e.args[0].reason.args[0].strip(":")[0]
+            print("Error trying to connect to {}: {}".format(url, error_message), 500)
         except TimeoutError:
             # TODO enhance the backoff logic. this is not threadsafe and might occur in wrong values for the backoff
             # maybe a queue could be useful here
@@ -65,8 +65,8 @@ class LogFlush:
         days = UTCTimeStampCalculator.days(self.config["logSchedule"]["days"]) if "logSchedule" in self.config and "days" in self.config["logSchedule"] else 0
         hours = UTCTimeStampCalculator.hours(self.config["logSchedule"]["hours"]) if "logSchedule" in self.config and "hours" in self.config["logSchedule"] else 0
         minutes = UTCTimeStampCalculator.minutes(self.config["logSchedule"]["mins"]) if "logSchedule" in self.config and "mins" in self.config["logSchedule"] else 0
-        time = days + hours + minutes
-        print("got schedule?")
-        self._scheduler.enter(time, 1, self.flush, argument=(file_path,))
-        self._scheduler.enter(time, 2, self.schedule_flush, argument=(file_path,))
-        self._scheduler.run()
+        wait_time = days + hours + minutes
+        while True:
+            time.sleep(wait_time)
+            print("flush job will execute in {} seconds".format(wait_time))
+            self.flush(file_path)
