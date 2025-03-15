@@ -7,6 +7,14 @@ class Logger(logging.Logger):
     Python class to log messages to a file, encapsuling calls to the standard logging module.
     The format of this logger is the same as described in LogAggregator (https://github.com/simasgrilo/log-aggregator)
     """
+    
+    _instance = None
+    
+    def __new__(cls, log_file_path: str, log_level=logging.INFO):
+        if cls._instance is None:
+            cls._instance = super(Logger, cls).__new__(cls)
+        return cls._instance
+    
     def __init__(self, log_file_path, log_level=logging.INFO):
         """
         Args:
@@ -16,10 +24,13 @@ class Logger(logging.Logger):
         super().__init__(__name__)
         self.__logger = logging.getLogger(__name__)
         self.__logger.setLevel(log_level)
-        self.__formatter = logging.Formatter('%(asctime)s - %(client_ip)-15s %(process)d - %(levelname)s - %(funcName)s - %(filename)s - %(message)s')
+        self.__formatter = logging.Formatter('%(asctime)s - %(client_ip)-15s - %(process)d - %(levelname)s - %(funcName)s - %(filename)s - %(message)s')
         self.__file_handler = logging.FileHandler(log_file_path) #the handler defines where the info will be logged. for now, all logged info will be written to a file
         self.__file_handler.setFormatter(self.__formatter)
         self.__logger.addHandler(self.__file_handler)
+    
+    def get_instance(cls):
+        return cls._instance
         
     @property
     def logger(self):

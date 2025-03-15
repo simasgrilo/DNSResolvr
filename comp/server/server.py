@@ -23,18 +23,17 @@ class DNSServer:
     def __init__(self, config_file: str):
         config_manager = ConfigManager(config_file)
         self._config = config_manager.config
-        self._log_path = os.path.join(os.path.dirname(__file__), "dns.log")
+        self. _log_path = os.path.join(os.path.dirname(__file__), "dns.log")
         config_manager.set("logPath", self._log_path)
         self.__logger = Logger(self._log_path).logger
         self.__logger.info("Starting DNS server with configuration from {}".format(config_file))
         self.__querier = DNSQuerier()
-        self.__flusher = LogFlush(self._config)
+        self.__flusher = LogFlush(self._config, self.__logger)
         
         # Schedule the log task sending in another thread so it will not block the execution of the server.
         self._periodic_thread = threading.Thread(target=self.__flusher.schedule_flush, kwargs={"file_path" : self._log_path})
         self._periodic_thread.start()
 
-    @property
     def flask_app(self):
         return self.__app
 

@@ -1,6 +1,7 @@
 from comp.utils import UTCTimeStampCalculator
 import requests
 from requests.exceptions import ConnectionError as ReqConnectionError
+from comp.logging import Logger
 import json
 import time
 
@@ -11,18 +12,24 @@ class LogFlush:
     cleaning the directory by removing the file.
     """
     
-    def __init__(self, config):
+    def __init__(self, config, logger: Logger):
         """
         Initializes the LogFlush class with the configuration read from the file provided upon server initalization
         Args:
             config (dict): Configuration dict read from file
         """
+        #self._logger = Logger().logger
+        self._logger = logger
         self._config = config
-        self._backoff = 1000
+        self._backoff = 1
     
     @property
     def config(self):
         return self._config
+    
+    @property
+    def logger(self):
+        return self._logger
     
     def read_file(self, file_path: str):
         content = None
@@ -39,21 +46,21 @@ class LogFlush:
         content = self.read_file(file_path)
         url = "{}://{}:{}{}".format(self.config["LogAggregator"]["protocol"], self.config["LogAggregator"]["host"], self.config["LogAggregator"]["port"], self.config["LogAggregator"]["endpoint"])
         try:
-            requests.post(url=url,json=json.dumps(content))
-            #TODO remove the file if it has already been sent.
-            print("request sent")
+            #requests.post(url=url,json=json.dumps(content))
+            requests.post(url=url, data=content)
         except ConnectionError and ReqConnectionError as e:
-            error_message = e.args[0].reason.args[0].strip(":")[0]
-            print("Error trying to connect to {}: {}".format(url, error_message), 500)
+            self.logger.error("Error trying to connect to {}: {}".format(url, e.__str__()), 500)
         except TimeoutError:
             # TODO enhance the backoff logic. this is not threadsafe and might occur in wrong values for the backoff
             # maybe a queue could be useful here
-            time.sleep(self._backoff * 1000)
-            self._backoff += 1000
+            self.logger.error("Timeout error occurred. Retrying in {} seconds".format(self._backoff))
+            time.sleep(self._backoff)
+            self._backoff += 5
             self.flush(content)
-            self._backoff = 1000
+            self._backoff = 1
         except Exception as e:
             import traceback
+            
             traceback.print_exception(e)
             
     def schedule_flush(self, file_path: str):
@@ -67,6 +74,6 @@ class LogFlush:
         minutes = UTCTimeStampCalculator.minutes(self.config["logSchedule"]["mins"]) if "logSchedule" in self.config and "mins" in self.config["logSchedule"] else 0
         wait_time = days + hours + minutes
         while True:
-            time.sleep(wait_time)
             print("flush job will execute in {} seconds".format(wait_time))
+            time.sleep(wait_time)
             self.flush(file_path)

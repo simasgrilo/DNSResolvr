@@ -1,2 +1,2 @@
-from .LogFlush import LogFlush
 from .Logger import Logger
+from .LogFlush import LogFlush

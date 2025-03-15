@@ -9,4 +9,4 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false \
   && poetry install --no-interaction --no-ansi
 EXPOSE 5000
-CMD ["python", "main.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
