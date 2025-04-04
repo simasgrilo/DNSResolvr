@@ -22,6 +22,19 @@ class LogFlush:
         self._logger = logger
         self._config = config
         self._backoff = 1
+        
+    def _validate_config(self, config: dict):
+        """
+        Validates whether the config file is correct and contains all the necessary data to be able to flush the logs to the main service
+        Args:
+            config (dict): a config key-value map initialized upon server startup.
+        Returns:
+            _type_: _description_
+        """
+        if "LogAggregator" not in config:
+            raise ValueError("Missing LogAggregator section in config file")
+        if "username" not in config or "password" not in config:
+            raise ValueError("Missing authentication credentials in config file")
     
     @property
     def config(self):
@@ -46,8 +59,19 @@ class LogFlush:
         content = self.read_file(file_path)
         url = "{}://{}:{}{}".format(self.config["LogAggregator"]["protocol"], self.config["LogAggregator"]["host"], self.config["LogAggregator"]["port"], self.config["LogAggregator"]["endpoint"])
         try:
-            #requests.post(url=url,json=json.dumps(content))
-            requests.post(url=url, data=content)
+            username, password = self.config["LogAggregator"]["username"], self.config["LogAggregator"]["password"]
+            token = self._get_jwt_token((username, password))
+            headers = {
+                "Authorization" : "Bearer {}".format(token),
+                "Content-Type": "application/json"
+            }
+            response = requests.post(url=url, data=content, headers=headers)
+            if response.status_code != 200:
+                message = "Error {} trying to connect to {}: {}".format(response.status_code, url, response.text)
+                self.logger.error(message)
+                print(message)
+                return
+            print("Log file {} sent to LogAggregator service".format(file_path))
         except ConnectionError and ReqConnectionError as e:
             self.logger.error("Error trying to connect to {}: {}".format(url, e.__str__()), 500)
         except TimeoutError:
@@ -61,6 +85,16 @@ class LogFlush:
         except Exception as e:
             import traceback
             traceback.print_exception(e)
+            
+    def _get_jwt_token(self, credentials):
+        """
+        Retrieves the JWT token from the LogAggregator service using the credentials provided in the config file.
+        Args:
+            credentials (_type_): _description_
+        """
+        url = "{}://{}:{}{}".format(self.config["LogAggregator"]["protocol"], self.config["LogAggregator"]["host"], self.config["LogAggregator"]["port"], self.config["LogAggregator"]["login"])
+        response = requests.get(url=url, auth=credentials, headers={"Content-Type": "application/json"})
+        return response.json()["token"]["access"]
             
     def schedule_flush(self, file_path: str):
         """

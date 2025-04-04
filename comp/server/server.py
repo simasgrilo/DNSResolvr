@@ -6,7 +6,7 @@ from comp.utils.ConfigManager import ConfigManager
 import json
 import os
 import threading
-
+from pathlib import Path
 
 class DNSServer:
     __app = Flask(__name__)
@@ -21,10 +21,10 @@ class DNSServer:
         return cls.__instance
 
     def __init__(self, config_file: str):
+        self._log_path = os.path.join(Path(__file__).parent.parent.parent, 'logs', "dns.log")
         config_manager = ConfigManager(config_file)
-        self._config = config_manager.config
-        self. _log_path = os.path.join(os.path.dirname(__file__), "dns.log")
         config_manager.set("logPath", self._log_path)
+        self._config = config_manager.config
         self.__logger = Logger(self._log_path).logger
         self.__logger.info("Starting DNS server with configuration from {}".format(config_file))
         self.__querier = DNSQuerier()
