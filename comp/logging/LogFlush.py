@@ -56,11 +56,10 @@ class LogFlush:
             self.logger.error("Timeout error occurred. Retrying in {} seconds".format(self._backoff))
             time.sleep(self._backoff)
             self._backoff += 5
-            self.flush(content)
+            self.flush(file_path)
             self._backoff = 1
         except Exception as e:
             import traceback
-            
             traceback.print_exception(e)
             
     def schedule_flush(self, file_path: str):

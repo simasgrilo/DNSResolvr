@@ -25,9 +25,22 @@ class Logger(logging.Logger):
         self.__logger = logging.getLogger(__name__)
         self.__logger.setLevel(log_level)
         self.__formatter = logging.Formatter('%(asctime)s - %(client_ip)-15s - %(process)d - %(levelname)s - %(funcName)s - %(filename)s - %(message)s')
-        self.__file_handler = logging.FileHandler(log_file_path) #the handler defines where the info will be logged. for now, all logged info will be written to a file
+        #if the file does not exist, create it:
+        self.__initialize_file(log_file_path)
         self.__file_handler.setFormatter(self.__formatter)
         self.__logger.addHandler(self.__file_handler)
+    
+    def __initialize_file(self, log_file_path: str):
+        """
+        initializes where the logger will store the data to push to the LogAggregator service.
+        If the file does not exist, then create it
+        Args:
+            log_file_path (str): absolute file path to create the logging file.
+        """
+        with open(log_file_path, "wt") as fp:
+            pass
+        self.__file_handler = logging.FileHandler(log_file_path)
+            
     
     def get_instance(cls):
         return cls._instance
