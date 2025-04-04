@@ -9,6 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 flask = "^3.0.3"
+gunicorn = "^23.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.4.0"]

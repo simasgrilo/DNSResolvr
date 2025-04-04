@@ -7,6 +7,6 @@ RUN python -m venv /venv
 COPY . /app/
 COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false \
-  && poetry install --no-interaction --no-ansi
+  && poetry install --no-interaction --no-ansi --no-root
 EXPOSE 5000
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
