@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dns-resolver-config
+  labels:
+    app: dns-resolver
+data:
+  config.json : |
+    {
+      "LogAggregator": {
+          "protocol": "http",
+          "host": "log-aggregator-service",
+          "port": 3001,
+          "endpoint": "/log",
+          "username" : <logAggregatorUser>,
+          "password" : <logAggregatorUserPassword>,
+          "login": "/auth/login"
+      },
+
+      "logFile" : "",
+
+      "logSchedule" : {
+          "days": 0,
+          "hours": 0,
+          "mins": 0.5
+      }
+    }
