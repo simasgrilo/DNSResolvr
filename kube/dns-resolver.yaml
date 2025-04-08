@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dns-resolver
+  namespace: default
+  labels:
+    app: dns-resolver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dns-resolver
+  template:
+    metadata:
+      labels:
+        app: dns-resolver
+    spec:
+      containers:
+      - name: dns-resolver-container
+        image: simasgrilo/dns-resolver:latest
+        imagePullPolicy: Always
+        volumeMounts:
+          - name:  dns-resolver-config
+            mountPath:  '/app/config.json' 
+            subPath: config.json
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      volumes:
+        - name: dns-resolver-config
+          configMap : 
+            name: dns-resolver-config
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name:  dns-resolver-service
+spec:
+  selector:
+    app:  dns-resolver
+  type:   NodePort
+  ports:
+  - protocol: TCP
+    port:  3000
+    targetPort:  5000
+    nodePort: 30000
+
