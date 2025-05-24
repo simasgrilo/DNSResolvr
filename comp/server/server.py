@@ -1,12 +1,14 @@
+import json
+import os
+import threading
+from pathlib import Path
 from flask import Flask, request
 from comp.dns.DNSQuerier import DNSQuerier
 from comp.exc.BadServerNameException import BadServerNameException
 from comp.logging import Logger, LogFlush
 from comp.utils.ConfigManager import ConfigManager
-import json
-import os
-import threading
-from pathlib import Path
+from comp.cache.RedisManager import RedisManager
+
 
 class DNSServer:
     __app = Flask(__name__)
@@ -26,9 +28,12 @@ class DNSServer:
         config_manager.set("logPath", self._log_path)
         self._config = config_manager.config
         self.__logger = Logger(self._log_path).logger
-        self.__logger.info("Starting DNS server with configuration from {}".format(config_file))
-        self.__querier = DNSQuerier()
+        self.__logger.info(f'Starting DNS server with configuration from {config_file}')
+        self.redis_manager = RedisManager(config_file)
+        self.redis_manager.connect()
+        self.__querier = DNSQuerier(self.redis_manager, self.__logger)
         self.__flusher = LogFlush(self._config, self.__logger)
+
         
         # Schedule the log task sending in another thread so it will not block the execution of the server.
         self._periodic_thread = threading.Thread(target=self.__flusher.schedule_flush, kwargs={"file_path" : self._log_path})

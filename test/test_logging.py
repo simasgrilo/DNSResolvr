@@ -1,6 +1,6 @@
 import unittest
 import os
-from Logger import Logger
+from comp.logging.Logger import Logger
 
 class Test_LogSuite(unittest.TestCase):
     
