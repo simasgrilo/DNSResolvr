@@ -28,10 +28,8 @@ class TestRedisManager(unittest.TestCase):
         self.redis_manager.store(key, value)
         store_mock.return_value = { key: value }
         get_mock.return_value = store_mock.return_value[key]
-        print(get_mock.return_value, "get_mock.return_value")
         # Retrieve the value
         retrieved_value = self.redis_manager.get(key)
-        print(retrieved_value, "retrieved_value")
 
         
         # Assert that the retrieved value matches the stored value
