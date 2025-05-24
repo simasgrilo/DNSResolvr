@@ -1,0 +1,14 @@
+# Redis ConfigMap setup based on https://kubernetes.io/docs/tutorials/configuration/configure-redis-using-configmap/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  labels:
+    app: redis
+data:
+  redis.conf : |
+    bind 0.0.0.0
+    protected-mode no
+    appendonly yes
+  
+
